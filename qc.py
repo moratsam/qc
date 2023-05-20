@@ -15,7 +15,7 @@ class C(BaseModel):
 
     @property
     def prob(self) -> float:
-        """ Probability of colapsing to this state (mag**2). """
+        """ Probability of colapsing to this state (= mag**2). """
         return self.mag**2
 
     def __str__(self) -> str:
@@ -47,6 +47,11 @@ class C(BaseModel):
         else:
             return C(re=x*self.re, im=x*self.im)
 
+    @property
+    def conj(self) -> 'C':
+        """ Get conjugate. """
+        return C(re=self.re, im=self.im * -1)
+
 
 class Q(BaseModel):
     """ Qubit as amp0*|0> + amp1*|1>  """
@@ -64,20 +69,33 @@ class Q(BaseModel):
             raise ValueError(f'Probability is not 1: {values} {prob}')
         return values
 
+    @property
+    def vec(self) -> List[C]:
+        """ Qbit to 2-dim vector. """
+        return [self.amp0, self.amp1]
+
 
 # Constants
 MS2 = 1/sqrt(2) # Square root of 2 to the minus 1
-c0 = C(re=0,im=0) # Complex 0
-c1 = C(re=1,im=0) # Complex 1
-q0 = Q(amp0=c1, amp1=c0) # |0> aka [1, 0]T
-q1 = Q(amp0=c0, amp1=c1) # |1> aka [0, 1]T
+C0 = C(re=0,im=0) # Complex 0
+C1 = C(re=1,im=0) # Complex 1
+Q0 = Q(amp0=C1.copy(), amp1=C0.copy()) # |0> aka [1, 0]T
+Q1 = Q(amp0=C0.copy(), amp1=C1.copy()) # |1> aka [0, 1]T
 
 
 def _assert_0_or_1(qubits: List[Q]) -> None:
     for q in qubits:
-        if not (q == q0 or q == q1):
+        if not (q == Q0 or q == Q1):
             raise ValueError(f'Qubit must be |0> or |1>: {q}')
 
+
+def gen_eye(n: int) -> List[List[float]]:
+    """ Make identity matrix. """
+    eye = [[C0.copy() for _ in range(n)] for _ in range(n)]
+    for i in range(n):
+        eye[i][i] = C1.copy()
+    return eye
+            
 
 def _round_qubit(q: Q) -> None:
     """ Bring values close to 0 or 1 to 0 or 1. """
@@ -104,6 +122,75 @@ def _apply_UT(q: Q, ut) -> None:
     print(q)
 
 
+class SuPos:
+    """ Super position """
+    def __init__(self, tensor: List[C]) -> None:
+        self.reg = tuple(t for t in tensor)
+
+
+def scale_mat(mat: 'Matrix', s: float) -> 'Matrix':
+    """ Scale a matrix by a scalar <s>. """
+    for row in mat:
+        for j in range(len(row)):
+            row[j] *= s
+    return mat
+
+
+def mat_dagger(mat: 'Matrix') -> 'Matrix':
+    """ Get hermitian (conjugate) transpose of mat. """
+    dagger = []
+    for col_ix in range(len(mat[0])):
+        new_row = [row[col_ix] for row in mat]
+        print(new_row)
+        dagger.append(new_row)
+    return dagger
+    
+
+def join_mats(mats: List['Matrix'], axis: str) -> 'Matrix':
+    ''' Join matrices horizontally or vertically. '''
+    if axis == 'h':
+        row_nums = set(len(mat) for mat in mats)
+        if len(row_nums) > 1:
+            raise ValueError('All matrices must have the same numnber of rows.')
+
+        num_rows = list(row_nums)[0]
+        joined = [[] for _ in range(num_rows)]
+        for mat in mats:
+            for row_ix in range(num_rows):
+                joined[row_ix].extend(mat[row_ix])
+        return joined
+    elif axis == 'v':
+        #V join is the same as: dagger --> H join --> dagger.
+        daggered = join_mats([mat_dagger(mat) for mat in mats], 'h') 
+        return mat_dagger(daggered)
+    else:
+        raise ValueError('Unsupported axis: {axis}')
+
+
+def tensor_mats(mats: List['Matrix']) -> 'Matrix':
+    """ Make a tensor product of matrices. """
+
+
+def tensor_vecs(vectors: List['Vector']) -> 'Vector':
+    """ Make a tensor product of vectors. """
+    if len(vectors) < 2:
+        return vectors
+    elif len(vectors) > 2:
+        sub = tensor_vecs(vectors[1:])
+        return tensor_vecs([vectors[0], sub])
+    else:
+        tensor = []
+        for a0 in vectors[0]:
+            for a1 in vectors[1]:
+                tensor.append(a0 * a1)
+        return tensor
+
+
+
+
+
+
+
 # GATES
 def g_NOT(q: Q) -> None:
     """ Reverse the amplitudes. """
@@ -122,14 +209,14 @@ def g_HADAMARD(q: Q) -> None:
 def g_CNOT(control: Q, target: Q) -> None:
     """ Controlled NOT """
     _assert_0_or_1([control, target])
-    if control == q1:
+    if control == Q1:
         g_NOT(target)
 
 
 def g_CCNOT(cc: Q, c: Q, t: Q) -> None:
     """ Controlled CNOT """
     _assert_0_or_1([cc, c, t])
-    if cc == q1:
+    if cc == Q1:
         g_CNOT(c, t)
 
 
@@ -144,7 +231,7 @@ def g_SWAP(a: Q, b: Q) -> None:
 
 def g_CSWAP(c: Q, a: Q, b: Q) -> None:
     _assert_0_or_1([c, a, b])
-    if c == q1:
+    if c == Q1:
         g_SWAP(a, b)
 
 
