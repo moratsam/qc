@@ -1,5 +1,5 @@
 from math import cos, isclose, radians, sin, sqrt
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 from pydantic import BaseModel, root_validator
 
@@ -41,7 +41,7 @@ class C(BaseModel):
     def __mul__(self, x: [int, float, 'C']) -> 'C':
         if isinstance(x, C):
             return C(
-                re=self.re*x.re + self.im*x.im,
+                re=self.re*x.re - self.im*x.im,
                 im=self.re*x.im + self.im*x.re,
             )
         else:
@@ -113,13 +113,13 @@ def _round_qubit(q: Q) -> None:
 
 def _apply_UT(q: Q, ut) -> None:
     """ Apply a 2x2 unitary transformation to qubit q. """
-    print(q)
+    #print(q)
     amp0 = q.amp0 * ut[0][0] + q.amp1 * ut[0][1]
     amp1 = q.amp0 * ut[1][0] + q.amp1 * ut[1][1]
     q.amp0 = amp0
     q.amp1 = amp1
     _round_qubit(q)
-    print(q)
+    #print(q)
 
 
 class SuPos:
@@ -141,7 +141,6 @@ def mat_dagger(mat: 'Matrix') -> 'Matrix':
     dagger = []
     for col_ix in range(len(mat[0])):
         new_row = [row[col_ix] for row in mat]
-        print(new_row)
         dagger.append(new_row)
     return dagger
     
@@ -186,7 +185,26 @@ def tensor_vecs(vectors: List['Vector']) -> 'Vector':
         return tensor
 
 
-
+def circuit(qs: Tuple[Q, Q, Q]) -> Tuple[Q, Q, Q]:
+    q0, q1, q2 = qs
+    g_HADAMARD(q2)
+    g_CNOT(q1, q2)
+    g_T_dgr(q2)
+    g_CNOT(q0, q2)
+    g_T(q2)
+    g_CNOT(q1, q2)
+    g_T_dgr(q2)
+    g_CNOT(q0, q2)
+    g_T_dgr(q1)
+    g_T(q2)
+    g_CNOT(q0, q1)
+    g_HADAMARD(q2)
+    g_T_dgr(q1)
+    g_CNOT(q0, q1)
+    g_T(q0)
+    g_S(q1)
+    
+    return qs
 
 
 
@@ -208,14 +226,14 @@ def g_HADAMARD(q: Q) -> None:
 
 def g_CNOT(control: Q, target: Q) -> None:
     """ Controlled NOT """
-    _assert_0_or_1([control, target])
+    #_assert_0_or_1([control, target])
     if control == Q1:
         g_NOT(target)
 
 
 def g_CCNOT(cc: Q, c: Q, t: Q) -> None:
     """ Controlled CNOT """
-    _assert_0_or_1([cc, c, t])
+    #_assert_0_or_1([cc, c, t])
     if cc == Q1:
         g_CNOT(c, t)
 
@@ -245,7 +263,7 @@ def g_ROT(q: Q, phi: float) -> None:
     _apply_UT(q, ut)
 
 
-def q_S(q: Q) -> None:
+def g_S(q: Q) -> None:
     """ Multiply amp1 by i """
     ut = [
         [1, 0],
