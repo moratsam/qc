@@ -12,3 +12,8 @@ haha lmao
 ![example_step1](https://github.com/moratsam/qc/assets/43090095/7e751f91-608c-4725-9d8c-904f7acdf692)
 
 ![example_step2](https://github.com/moratsam/qc/assets/43090095/9f85fb7a-da76-4a09-b0ca-d7e2dfce4878)
+
+
+### Grover operator as gates
+
+![grover_operator_as_gates](https://github.com/moratsam/qc/assets/43090095/9d8e8977-9ce2-428e-a685-15481e82f50e)
